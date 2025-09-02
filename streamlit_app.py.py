@@ -69,25 +69,43 @@ def load_chain():
         text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
         docs = text_splitter.split_documents(documents)
 
-        # 3. Create embeddings (this part remains the same)
+        # 3. Create embeddings
         embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
 
         # 4. Create a FAISS vector store
         vectorstore = FAISS.from_documents(docs, embeddings)
 
         # 5. Set up the OpenAI Language Model (LLM)
-        # This is the new, more reliable part.
         from langchain_openai import ChatOpenAI
         llm = ChatOpenAI(
             openai_api_key=OPENAI_API_KEY,
             model_name="gpt-3.5-turbo",
-            temperature=0.5 # Lower temperature for more factual answers
+            temperature=0.7 
         )
 
-        # 6. Create the Conversational Retrieval Chain
+        # 6. Create a custom prompt for a more direct and FUN answering style
+        from langchain.prompts import PromptTemplate
+        prompt_template = """You are Sarah Bessadi's AI Ambassador. Your personality is professional, yet charismatic and a little fun. 
+        Your mission is to share Sarah's professional story in a captivating way. 
+        Be direct, but feel free to use a relevant emoji here and there to add some personality. Never make up information.
+
+        Use the following context about Sarah to answer the question.
+
+        Context: {context}
+
+        Question: {question}
+        
+        Answer:"""
+        
+        QA_PROMPT = PromptTemplate(
+            template=prompt_template, input_variables=["context", "question"]
+        )
+
+        # 7. Create the Conversational Retrieval Chain with the custom prompt
         chain = ConversationalRetrievalChain.from_llm(
             llm=llm,
             retriever=vectorstore.as_retriever(),
+            combine_docs_chain_kwargs={"prompt": QA_PROMPT},
             return_source_documents=False
         )
         return chain
