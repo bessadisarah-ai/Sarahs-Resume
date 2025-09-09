@@ -28,23 +28,23 @@ A dynamic and results-driven professional with a unique dual Master's in Interna
 
 ## Professional Experience
 
-### Deal Manager Apprentice | Navblue (An Airbus Company) | (Aug 2024 - Present)
+### Deal Manager Apprentice | Navblue (An Airbus Company) | (August 2024 - December 2025)
 - Integral member of the EMEA sales team, driving the technical-commercial strategy for complex bids and contributing to a sales pipeline valued at over €15M.
 - Managed the end-to-end RFP/RFI response process, coordinating with engineering, finance, and marketing to increase our win rate by an estimated 10%.
 - Acted as the business owner for a new bid management tool, optimizing the sales process and reducing proposal generation time by 15%.
 - Supported client-facing technical demonstrations for key accounts, helping to accelerate the sales cycle for the "Mission+" flight operations solution.
 
-### Sales Engineer Apprentice | PRODEVAL | (Dec 2023 - Aug 2024)
+### Sales Engineer Apprentice | PRODEVAL | (December 2023 - August 2024)
 - Engineered and presented tailored value propositions to clients in the renewable energy sector, leading to successful contract wins.
 - Proactively generated new leads and represented the company at international trade shows, expanding our brand presence and building a pipeline of prospects.
 - Managed the client database and sales documentation, ensuring data integrity for effective pipeline forecasting.
 
 ### Foundational Engineering Internships
-- **Process Optimization Intern | GSK | (Dec 2021 - Feb 2022)**
+- **Process Optimization Intern | GSK | (December 2021 - February 2022)**
   - Ensured pharmaceutical product quality for Clamoxyl and Augmentin by adhering to strict manufacturing protocols and conducting routine QA checks.
   - Collaborated with R&D teams to facilitate a smooth transition from product development to full-scale production.
 
-- **Production Process Engineer Intern | SONATRACH | (May 2021 - Aug 2021)**
+- **Production Process Engineer Intern | SONATRACH | (May 2021 - August 2021)**
   - Contributed to process optimization by monitoring distillation columns to ensure maximum production yields.
   - Performed sample collection and data analysis of petroleum fractions to inform precise adjustments to production parameters.
 

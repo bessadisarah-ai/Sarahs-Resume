@@ -18,7 +18,7 @@ st.markdown("""
     .st-emotion-cache-1c7y2kd { /* Assistant chat bubble */
         background-color: #262730; /* A darker gray for the assistant */
         border-radius: 10px;
-        padding: 1rem;
+        paddingll 1rem;
         border: 1px solid #262730;
     }
 
