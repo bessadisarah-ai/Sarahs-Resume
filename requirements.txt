@@ -1,7 +1,7 @@
 streamlit
-langchain
-langchain-openai
-langchain-huggingface
-langchain-community
+langchain==0.0.354
+openai==0.28.1
 faiss-cpu
 sentence-transformers
+tiktoken
+
