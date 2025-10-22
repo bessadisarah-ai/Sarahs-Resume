@@ -9,6 +9,7 @@ from langchain.vectorstores import FAISS
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
+from langchain.prompts import PromptTemplate  # <-- Import for personality
 
 # --- PAGE CONFIG (MUST BE THE FIRST STREAMLIT COMMAND) ---
 st.set_page_config(page_title="Sarah Bessadi | Digital CV", page_icon="🚀", layout="wide")
@@ -74,13 +75,13 @@ def load_chain():
         text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
         docs = text_splitter.split_documents(documents)
 
-        # 4. Create embeddings (using the old import path)
+        # 4. Create embeddings
         embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
 
         # 5. Create FAISS vector store
         vectorstore = FAISS.from_documents(docs, embeddings)
 
-        # 6. Set up the LLM (using the old import path and old openai version)
+        # 6. Set up the LLM
         llm = ChatOpenAI(
             openai_api_key=OPENAI_API_KEY,
             model_name="gpt-3.5-turbo",
@@ -88,14 +89,31 @@ def load_chain():
         )
         
         # 7. Create memory
-        # This will hold the chat history *inside* the chain object
         memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
-        # 8. Create the old, simple chain
+        # --- NEW PERSONALITY PROMPT ---
+        prompt_template = """You are Sarah Bessadi's AI Ambassador. Your personality is professional, witty, and engaging.
+        Your mission is to share Sarah's professional story in a captivating way. 
+        You are driven, ambitious, and bright.
+        Feel free to use a relevant emoji 🚀 or a sharp, witty remark, but always remain on-mission. 
+        Never make up information. If you don't know the answer, say so with confidence.
+        
+        Use the following context to answer the question:
+        {context}
+        
+        Question: {question}
+        Answer:"""
+
+        QA_PROMPT = PromptTemplate(
+            template=prompt_template, input_variables=["context", "question"]
+        )
+        
+        # 8. Create the chain WITH the new prompt
         chain = ConversationalRetrievalChain.from_llm(
             llm=llm,
             retriever=vectorstore.as_retriever(),
-            memory=memory  # The chain will manage its own memory
+            memory=memory,
+            combine_docs_chain_kwargs={"prompt": QA_PROMPT} # This injects the personality
         )
         
         return chain
@@ -134,9 +152,7 @@ if chain:
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
                 
-                # This is the old, simple way to call the chain.
                 # The memory is handled internally by the 'chain' object.
-                # We don't need to pass the history manually.
                 result = chain({"question": prompt})
                 
                 response = result.get('answer', 'Sorry, I encountered an issue.')
