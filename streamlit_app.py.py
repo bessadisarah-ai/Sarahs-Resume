@@ -1,4 +1,5 @@
 import streamlit as st
+import os
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -6,9 +7,12 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_community.document_loaders import TextLoader
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_huggingface import HuggingFacePipeline
+from langchain_openai import ChatOpenAI  # Moved import to top
 from langchain.text_splitter import CharacterTextSplitter
-import os
+
+# --- UI Configuration ---
+# This should be the *first* Streamlit command
+st.set_page_config(page_title="Sarah Bessadi | Digital CV", page_icon="🚀", layout="wide")
 
 st.markdown("""
 <style>
@@ -21,7 +25,7 @@ st.markdown("""
     .st-emotion-cache-1c7y2kd { /* Assistant chat bubble */
         background-color: #262730; /* A darker gray for the assistant */
         border-radius: 10px;
-        paddingll 1rem;
+        padding: 1rem; /* Corrected padding property */
         border: 1px solid #262730;
     }
 
@@ -33,9 +37,6 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-
-# --- UI Configuration ---
-st.set_page_config(page_title="Sarah Bessadi | Digital CV", page_icon="🚀", layout="wide")
 
 # --- Header Section ---
 with st.container():
@@ -79,76 +80,61 @@ def load_chain():
         vectorstore = FAISS.from_documents(docs, embeddings)
 
         # 5. Set up the OpenAI Language Model (LLM)
-        from langchain_openai import ChatOpenAI
         llm = ChatOpenAI(
             openai_api_key=OPENAI_API_KEY,
             model_name="gpt-3.5-turbo",
             temperature=0.7 
         )
 
-        # 6. Create a custom prompt for a more direct and FUN answering style
-        from langchain.prompts import PromptTemplate
-        prompt_template = """You are Sarah Bessadi's AI Ambassador. Your personality is professional, yet charismatic and a little fun. 
-        Your mission is to share Sarah's professional story in a captivating way. 
-        Be direct, but feel free to use a relevant emoji here and there to add some personality. Never make up information.
+        # --- This is the new, correct chain logic ---
 
-        Use the following context about Sarah to answer the question.
-
-        Context: {context}
-
-        Question: {question}
+        # 6. Create the history-aware retriever
+        retriever = vectorstore.as_retriever()
         
-        Answer:"""
-        
-        QA_PROMPT = PromptTemplate(
-            template=prompt_template, input_variables=["context", "question"]
+        contextualize_q_system_prompt = (
+            "Given a chat history and the latest user question "
+            "which might reference context in the chat history, "
+            "formulate a standalone question which can be understood "
+            "without the chat history. DO NOT answer the question, "
+            "just reformulate it if needed and otherwise return it as is."
         )
-# 1. Define a prompt template for rephrasing the question
-contextualize_q_system_prompt = (
-    "Given a chat history and the latest user question "
-    "which might reference context in the chat history, "
-    "formulate a standalone question which can be understood "
-    "without the chat history. DO NOT answer the question, "
-    "just reformulate it if needed and otherwise return it as is."
-)
+        contextualize_q_prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", contextualize_q_system_prompt),
+                MessagesPlaceholder("chat_history"),
+                ("human", "{input}"),
+            ]
+        )
+        history_aware_retriever = create_history_aware_retriever(
+            llm, retriever, contextualize_q_prompt
+        )
 
-contextualize_q_prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", contextualize_q_system_prompt),
-        MessagesPlaceholder("chat_history"),
-        ("human", "{input}"),
-    ]
-)
+        # 7. Create the question-answering chain
+        qa_system_prompt = (
+            "You are Sarah Bessadi's AI Ambassador. Your personality is professional, "
+            "yet charismatic and a little fun. Your mission is to share Sarah's "
+            "professional story in a captivating way. Be direct, but feel free to "
+            "use a relevant emoji here and there. Never make up information."
+            "\n\n"
+            "Use the following pieces of retrieved context to answer the question:"
+            "\n\n"
+            "{context}"
+        )
+        qa_prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", qa_system_prompt),
+                MessagesPlaceholder("chat_history"),
+                ("human", "{input}"),
+            ]
+        )
+        question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
 
-# 2. Create the history-aware retriever
-# (Make sure 'your_llm' and 'your_vectorstore' variables are defined)
-retriever = your_vectorstore.as_retriever() # Or however you defined your retriever
-history_aware_retriever = create_history_aware_retriever(
-    your_llm, retriever, contextualize_q_prompt
-)
-# 3. Define a prompt template for answering the question
-qa_system_prompt = (
-    "You are an assistant for question-answering tasks. "
-    "Use the following pieces of retrieved context to answer "
-    "the question. If you don't know the answer, just say "
-    "that you don't know. Keep the answer concise."
-    "\n\n"
-    "{context}"
-)
+        # 8. Create the final retrieval chain
+        rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+        
+        # 9. Return the *correct* chain variable
+        return rag_chain
 
-qa_prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", qa_system_prompt),
-        MessagesPlaceholder("chat_history"),
-        ("human", "{input}"),
-    ]
-)
-
-# 4. Create the document-stuffing chain
-question_answer_chain = create_stuff_documents_chain(your_llm, qa_prompt)
-# 5. Create the final retrieval chain
-rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
-        return chain
     except Exception as e:
         st.error(f"An error occurred while loading the AI model: {e}")
         return None
@@ -157,33 +143,42 @@ rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chai
 chain = load_chain()
 
 if chain:
-    # Initialize session state for chat history
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-        st.session_state.messages.append(
-            {"role": "assistant", "content": "Hello! How can I help you learn more about Sarah's profile?"}
-        )
+    # Initialize session state for *LangChain message objects*
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = [
+            AIMessage(content="Hello! How can I help you learn more about Sarah's profile?")
+        ]
 
-    # Display chat messages
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    # Display chat messages from history
+    for msg in st.session_state.chat_history:
+        if isinstance(msg, HumanMessage):
+            with st.chat_message("user"):
+                st.markdown(msg.content)
+        elif isinstance(msg, AIMessage):
+            with st.chat_message("assistant"):
+                st.markdown(msg.content)
 
     # Accept user input
     if prompt := st.chat_input("Ask a question about Sarah..."):
-        st.session_state.messages.append({"role": "user", "content": prompt})
+        # Add user message to history
+        st.session_state.chat_history.append(HumanMessage(content=prompt))
+        
+        # Display user message
         with st.chat_message("user"):
             st.markdown(prompt)
 
         # Generate and display response
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                chat_history = [(msg["role"], msg["content"]) for msg in st.session_state.messages if msg["role"] != 'assistant']
-                result = chain({"question": prompt, "chat_history": chat_history})
+                # Call the chain using the new 'invoke' method and correct history format
+                result = chain.invoke({
+                    "input": prompt,
+                    "chat_history": st.session_state.chat_history
+                })
                 response = result['answer']
                 st.markdown(response)
         
-        st.session_state.messages.append({"role": "assistant", "content": response})
+        # Add AI response to history
+        st.session_state.chat_history.append(AIMessage(content=response))
 else:
-
-    st.error("The chatbot could not be loaded. Please check the logs in the terminal for errors.")
+    st.error("The chatbot could not be loaded. Please check the app's 'Manage app' logs for errors.")
