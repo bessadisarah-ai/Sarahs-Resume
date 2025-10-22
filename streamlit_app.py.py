@@ -1,5 +1,8 @@
 import streamlit as st
-from langchain.chains import ConversationalRetrievalChain
+from langchain.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.messages import HumanMessage, AIMessage
 from langchain_community.document_loaders import TextLoader
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -100,14 +103,51 @@ def load_chain():
         QA_PROMPT = PromptTemplate(
             template=prompt_template, input_variables=["context", "question"]
         )
+# 1. Define a prompt template for rephrasing the question
+contextualize_q_system_prompt = (
+    "Given a chat history and the latest user question "
+    "which might reference context in the chat history, "
+    "formulate a standalone question which can be understood "
+    "without the chat history. DO NOT answer the question, "
+    "just reformulate it if needed and otherwise return it as is."
+)
 
-        # 7. Create the Conversational Retrieval Chain with the custom prompt
-        chain = ConversationalRetrievalChain.from_llm(
-            llm=llm,
-            retriever=vectorstore.as_retriever(),
-            combine_docs_chain_kwargs={"prompt": QA_PROMPT},
-            return_source_documents=False
-        )
+contextualize_q_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", contextualize_q_system_prompt),
+        MessagesPlaceholder("chat_history"),
+        ("human", "{input}"),
+    ]
+)
+
+# 2. Create the history-aware retriever
+# (Make sure 'your_llm' and 'your_vectorstore' variables are defined)
+retriever = your_vectorstore.as_retriever() # Or however you defined your retriever
+history_aware_retriever = create_history_aware_retriever(
+    your_llm, retriever, contextualize_q_prompt
+)
+# 3. Define a prompt template for answering the question
+qa_system_prompt = (
+    "You are an assistant for question-answering tasks. "
+    "Use the following pieces of retrieved context to answer "
+    "the question. If you don't know the answer, just say "
+    "that you don't know. Keep the answer concise."
+    "\n\n"
+    "{context}"
+)
+
+qa_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", qa_system_prompt),
+        MessagesPlaceholder("chat_history"),
+        ("human", "{input}"),
+    ]
+)
+
+# 4. Create the document-stuffing chain
+question_answer_chain = create_stuff_documents_chain(your_llm, qa_prompt)
+# 5. Create the final retrieval chain
+rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
         return chain
     except Exception as e:
         st.error(f"An error occurred while loading the AI model: {e}")
@@ -145,4 +185,5 @@ if chain:
         
         st.session_state.messages.append({"role": "assistant", "content": response})
 else:
+
     st.error("The chatbot could not be loaded. Please check the logs in the terminal for errors.")
