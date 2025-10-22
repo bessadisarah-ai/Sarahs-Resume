@@ -1,11 +1,7 @@
 streamlit
 langchain
-langchain_community
-langchain_huggingface
-sentence-transformers
-faiss-cpu
-pypdf
-accelerate
-torch
 langchain-openai
-langsmith
+langchain-huggingface
+langchain-community
+faiss-cpu
+sentence-transformers
